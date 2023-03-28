@@ -51,8 +51,6 @@ female_test_data  = female_test_data .drop(columns=['Sex_female','Sex_male'], ax
 
 feature_numeric = [
     'Age',
-    'SibSp',
-    'Parch',
     'Rooms_Count',
     'Fare',
     
@@ -62,17 +60,9 @@ feature_OH = [
     'Pclass_1',
     'Pclass_2',
     'Pclass_3',
-    'Section_A',
-    'Section_B',
-    'Section_C',
-    'Section_D',
-    'Section_E',
-    'Section_F',
-    'Section_G',
 ]
 cross_columns = ['Age', 'Fare', 
                  'Rooms_Count', 
-                 'SibSp', 'Parch', 
                  'Pclass_1', 'Pclass_2', 'Pclass_3',
                  ]
 
@@ -105,14 +95,15 @@ testX_female[feature_numeric] = scaler.fit_transform(testX_female[feature_numeri
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 
-split = 0.175
-epochs_ = 125
+split = 0.15
+epochs_ = 170
 batches = 40
 reg2 = 0.015
+dropout = 0.04
 
 male_model = Sequential([
-    Dense(115, activation='tanh', input_shape=(X_male.shape[1],), kernel_regularizer=l2(reg2)),
-    Dropout(0.03),
+    Dense(130, activation='tanh', input_shape=(X_male.shape[1],), kernel_regularizer=l2(reg2)),
+    Dropout(dropout),
     Dense(1, activation='sigmoid')
 ])
 
@@ -126,15 +117,14 @@ history_male = male_model.fit(X_male, y_male, epochs=epochs_, batch_size=batches
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 split = 0.2
-epochs_ = 125
-batches = 25
+epochs_ = 150
+batches = 40
 nodes = 115
-dropout = 0.19
-reg2 = 0.03
+dropout = 0.045
+reg2 = 0.00015
 n_rows = 3
 n_cols = 4
-fig, axes = plt.subplots(n_rows, n_cols, figsize=(20, 15))
-fig.tight_layout(pad=5.0)
+
 
 female_model = Sequential([
     Dense(nodes, activation='relu', input_shape=(X_female.shape[1],), kernel_regularizer=l2(reg2)),
@@ -143,7 +133,6 @@ female_model = Sequential([
 ])
 female_model.compile(optimizer='RMSprop', loss='binary_crossentropy', metrics=['accuracy'])
 history_female = female_model.fit(X_female, y_female, epochs=epochs_, batch_size=batches, validation_split=split)
-
 
 ###~~~~PREDICTING TEST DATA~~~~###
 
@@ -154,14 +143,14 @@ y_pred_male_df = pd.DataFrame(y_pred_male, columns=['Survived'], index=testX_mal
 y_pred_female_df = pd.DataFrame(y_pred_female, columns=['Survived'], index=testX_female.index)
 y_pred_combined = pd.concat([y_pred_male_df, y_pred_female_df]).sort_index()
 
-y_pred_combined['Survived'] = np.where(y_pred_combined['Survived'] >= 0.45, 1, 0)
+decisions = np.arange(0.5, 0.8, 0.05)
 
+for i, decision in enumerate(decisions):
+    y_pred_combined['Survived'] = np.where(y_pred_combined['Survived'] >= decision, 1, 0)
 
-test_raw = pd.read_csv('test.csv')
-
-test_raw.set_index(y_pred_combined.index, inplace=True)
-test_raw['Survived'] = y_pred_combined['Survived']
-
-Output = test_raw[['PassengerId', 'Survived']]
-
-Output.to_csv('Submission.csv', index=False)
+    test_raw = pd.read_csv('test.csv')
+    test_raw.set_index(y_pred_combined.index, inplace=True)
+    test_raw['Survived'] = y_pred_combined['Survived']
+    Output = test_raw[['PassengerId', 'Survived']]
+    filename = 'Submission' + "{:.2f}".format(decision) + '.csv'
+    Output.to_csv(filename, index=False)
